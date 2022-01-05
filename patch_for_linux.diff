@@ -1,0 +1,1099 @@
+diff -ur JMultiSliceLib_orig/JMultiSliceLib/src/Atoms.h JMultiSliceLib/JMultiSliceLib/src/Atoms.h
+--- JMultiSliceLib_orig/JMultiSliceLib/src/Atoms.h	2021-12-09 13:43:06.382502018 +0800
++++ JMultiSliceLib/JMultiSliceLib/src/Atoms.h	2021-11-30 17:49:06.928271333 +0800
+@@ -16,6 +16,7 @@
+ #pragma once
+ 
+ #include <string>
++#include <cstring>
+ #include "fcomplex.h"
+ #include "V3D.h"
+ 
+@@ -171,4 +172,4 @@
+ 
+ #endif // ATOM_H
+ //
+-// ************************************************************************** //
+\ No newline at end of file
++// ************************************************************************** //
+diff -ur JMultiSliceLib_orig/JMultiSliceLib/src/cu/FFTCallbacks.cuh JMultiSliceLib/JMultiSliceLib/src/cu/FFTCallbacks.cuh
+--- JMultiSliceLib_orig/JMultiSliceLib/src/cu/FFTCallbacks.cuh	2021-12-09 13:43:06.390502018 +0800
++++ JMultiSliceLib/JMultiSliceLib/src/cu/FFTCallbacks.cuh	2021-11-30 19:57:59.048537207 +0800
+@@ -41,8 +41,8 @@
+ } fftCallbackParams;
+ #endif
+ // applies complex multiplication during load
+-__device__ static cufftComplex MultCLoadCallback(void* in_ptr, size_t index, void* params_ptr, void*)
+-{
++__device__ static cufftComplex MultCLoadCallback(void* in_ptr, size_t index, void* params_ptr, void*);
++/*{
+     cufftComplex* in_data = (cufftComplex*)in_ptr;
+     cufftComplex in_tmp = in_data[index];
+     cufftComplex in;
+@@ -57,10 +57,10 @@
+         in = in_tmp;
+     }
+     return in;
+-}
++}*/
+ // applies complex multiplication during store
+-__device__ static void MultCStoreCallback(void* out_ptr, size_t index, cufftComplex in, void* params_ptr, void*)
+-{
++__device__ static void MultCStoreCallback(void* out_ptr, size_t index, cufftComplex in, void* params_ptr, void*);
++/*{
+     fftCallbackParams* params = (fftCallbackParams*)params_ptr;
+     cufftComplex out;
+     cufftComplex* store_data = params->store;
+@@ -75,4 +75,4 @@
+     }
+     cufftComplex* out_data = (cufftComplex*)out_ptr;
+     out_data[index] = out;
+-}
++}*/
+diff -ur JMultiSliceLib_orig/JMultiSliceLib/src/JEElaSca.cpp JMultiSliceLib/JMultiSliceLib/src/JEElaSca.cpp
+--- JMultiSliceLib_orig/JMultiSliceLib/src/JEElaSca.cpp	2021-12-09 13:43:06.386502018 +0800
++++ JMultiSliceLib/JMultiSliceLib/src/JEElaSca.cpp	2021-11-30 17:49:43.316272584 +0800
+@@ -24,7 +24,7 @@
+ //
+ 
+ #include "JEElaSca.h"
+-#include "cu\scapot.cuh"
++#include "cu/scapot.cuh"
+ #include <algorithm>
+ 
+ CJEElaSca::CJEElaSca()
+@@ -1157,4 +1157,4 @@
+ 
+ _exit:
+ 	return nerr;
+-}
+\ No newline at end of file
++}
+diff -ur JMultiSliceLib_orig/JMultiSliceLib/src/JFFTCUDAcore.h JMultiSliceLib/JMultiSliceLib/src/JFFTCUDAcore.h
+--- JMultiSliceLib_orig/JMultiSliceLib/src/JFFTCUDAcore.h	2021-12-09 13:43:06.386502018 +0800
++++ JMultiSliceLib/JMultiSliceLib/src/JFFTCUDAcore.h	2021-11-30 17:51:09.600275551 +0800
+@@ -48,8 +48,8 @@
+ #include "fcomplex.h"
+ #include <cuda_runtime.h>
+ #include <cufft.h>
+-#include "cu\ArrayOps.cuh"
+-//#include "cu\FFTCallbacks.cuh"
++#include "cu/ArrayOps.cuh"
++//#include "cu/FFTCallbacks.cuh"
+ //#include <windows.h>
+ //
+ #ifndef JFFTCUDACORE_H
+diff -ur JMultiSliceLib_orig/JMultiSliceLib/src/JFFTMKLcore.cpp JMultiSliceLib/JMultiSliceLib/src/JFFTMKLcore.cpp
+--- JMultiSliceLib_orig/JMultiSliceLib/src/JFFTMKLcore.cpp	2021-12-09 13:43:06.386502018 +0800
++++ JMultiSliceLib/JMultiSliceLib/src/JFFTMKLcore.cpp	2021-11-30 18:09:28.784313347 +0800
+@@ -283,7 +283,7 @@
+ 
+ int CJFFTMKLcore::CShift2d(int nsh0, int nsh1)
+ {
+-	int nerr = 0;
++	//int nerr = 0;
+ 	if (nsh0 == 0 && nsh1 == 0) return 0;
+ 	if (m_nstatus < 1) {
+ 		cerr << "Error(JFFTMKLcore): Cannot shift data, not initialized." << endl;
+@@ -306,17 +306,17 @@
+ 		return 3;
+ 	}
+ 	//
+-	nerr = memcpy_s((void*)tmp, b_n, (void*)m_pcw, b_n); // get a copy of the data
++	memcpy((void*)tmp, (void*)m_pcw, b_n); // get a copy of the data
+ 	//
+ 	for (j0 = 0; j0 < m_pdims[1]; j0++) { // loop over source row indices 
+ 		j1 = imod(j0 + jsh, m_pdims[1]); // destination row index
+ 		jdx0 = j0 * m_pdims[0]; // index of first row item in source
+ 		jdx1 = j1 * m_pdims[0]; // index of first row item in destination
+ 		// copy left part (left b_left bytes of source to ish shifted position in destination) 
+-		nerr = memcpy_s(&m_pcw[jdx1 + ish], b_left, &tmp[jdx0], b_left);
++		memcpy(&m_pcw[jdx1 + ish], &tmp[jdx0], b_left);
+ 		if (b_right > 0) { // ... if there is a shift
+ 			// copy right part (right b_right bytes of source to first position of destination)
+-			nerr = memcpy_s(&m_pcw[jdx1], b_right, &tmp[jdx0 + m_pdims[0] - ish], b_right);
++			memcpy(&m_pcw[jdx1], &tmp[jdx0 + m_pdims[0] - ish], b_right);
+ 		}
+ 	}
+ 	free(tmp);
+@@ -806,4 +806,4 @@
+ 		}
+ 	}
+ 	return (float)dsum;
+-}
+\ No newline at end of file
++}
+diff -ur JMultiSliceLib_orig/JMultiSliceLib/src/JFFTMKLcore.h JMultiSliceLib/JMultiSliceLib/src/JFFTMKLcore.h
+--- JMultiSliceLib_orig/JMultiSliceLib/src/JFFTMKLcore.h	2021-12-09 13:43:06.386502018 +0800
++++ JMultiSliceLib/JMultiSliceLib/src/JFFTMKLcore.h	2021-11-30 17:54:07.968281684 +0800
+@@ -44,6 +44,7 @@
+ //
+ #pragma once
+ //
++#include <cstring>
+ #include "fcomplex.h"
+ #include "mkl.h"
+ #include "mkl_dfti.h"
+diff -ur JMultiSliceLib_orig/JMultiSliceLib/src/JFFTWcore.cpp JMultiSliceLib/JMultiSliceLib/src/JFFTWcore.cpp
+--- JMultiSliceLib_orig/JMultiSliceLib/src/JFFTWcore.cpp	2021-12-09 13:43:06.386502018 +0800
++++ JMultiSliceLib/JMultiSliceLib/src/JFFTWcore.cpp	2021-11-30 18:11:43.020317963 +0800
+@@ -294,7 +294,7 @@
+ 
+ int CJFFTWcore::CShift2d(int nsh0, int nsh1)
+ {
+-	int nerr = 0;
++	//int nerr = 0;
+ 	if (nsh0 == 0 && nsh1 == 0) return 0;
+ 	if (m_nstatus < 1) {
+ 		cerr << "Error(JFFTWcore): Cannot shift data, not initialized." << endl;
+@@ -317,17 +317,17 @@
+ 		return 3;
+ 	}
+ 	//
+-	nerr = memcpy_s((void*)tmp, b_n, (void*)m_pcw, b_n); // get a copy of the data
++	memcpy((void*)tmp, (void*)m_pcw, b_n); // get a copy of the data
+ 	//
+ 	for (j0 = 0; j0 < m_pdims[1]; j0++) { // loop over source row indices 
+ 		j1 = imod(j0 + jsh, m_pdims[1]); // destination row index
+ 		jdx0 = j0 * m_pdims[0]; // index of first row item in source
+ 		jdx1 = j1 * m_pdims[0]; // index of first row item in destination
+ 		// copy left part (left b_left bytes of source to ish shifted position in destination) 
+-		nerr = memcpy_s(&m_pcw[jdx1 + ish], b_left, &tmp[jdx0], b_left);
++		memcpy(&m_pcw[jdx1 + ish], &tmp[jdx0], b_left);
+ 		if (b_right > 0) { // ... if there is a shift
+ 			// copy right part (right b_right bytes of source to first position of destination)
+-			nerr = memcpy_s(&m_pcw[jdx1], b_right, &tmp[jdx0 + m_pdims[0] - ish], b_right);
++			memcpy(&m_pcw[jdx1], &tmp[jdx0 + m_pdims[0] - ish], b_right);
+ 		}
+ 	}
+ 	free(tmp);
+@@ -842,4 +842,4 @@
+ 		}
+ 	}
+ 	return (float)dsum;
+-}
+\ No newline at end of file
++}
+diff -ur JMultiSliceLib_orig/JMultiSliceLib/src/JFFTWcore.h JMultiSliceLib/JMultiSliceLib/src/JFFTWcore.h
+--- JMultiSliceLib_orig/JMultiSliceLib/src/JFFTWcore.h	2021-12-09 13:43:06.386502018 +0800
++++ JMultiSliceLib/JMultiSliceLib/src/JFFTWcore.h	2021-11-30 18:10:21.756315169 +0800
+@@ -44,6 +44,7 @@
+ //
+ #pragma once
+ //
++#include <cstring>
+ #include "fcomplex.h"
+ #include "fftw3.h"
+ //
+diff -ur JMultiSliceLib_orig/JMultiSliceLib/src/JMultiSliceLib.cpp JMultiSliceLib/JMultiSliceLib/src/JMultiSliceLib.cpp
+--- JMultiSliceLib_orig/JMultiSliceLib/src/JMultiSliceLib.cpp	2021-12-09 13:43:06.386502018 +0800
++++ JMultiSliceLib/JMultiSliceLib/src/JMultiSliceLib.cpp	2021-11-30 20:51:04.276646732 +0800
+@@ -32,186 +32,186 @@
+ 
+ using namespace std;
+ 
+-float __stdcall GetJMSVersion(void)
++float GetJMSVersion(void)
+ {
+ 	return (float)__JMS_VERSION__ + 0.1f*(float)__JMS_VERSION_SUB__ + 0.01f*(float)__JMS_VERSION_SUB_SUB__;
+ }
+ 
+-int __stdcall SetJMSDebugLevel(int debuglevel)
++int SetJMSDebugLevel(int debuglevel)
+ {
+ 	return JMS.SetDebugLevel(debuglevel);
+ }
+ 
+-void __stdcall SetRng(CRng *prng)
++void SetRng(CRng *prng)
+ {
+ 	JMS.SetRng(prng);
+ }
+ 
+-CRng* __stdcall GetRng()
++CRng* GetRng()
+ {
+ 	return JMS.GetRng();
+ }
+ 
+-void __stdcall SeedRngEx(int rngseed)
++void SeedRngEx(int rngseed)
+ {
+ 	JMS.SeedRngEx(rngseed);
+ }
+ 
+-float __stdcall SetHighTension(float ht)
++float SetHighTension(float ht)
+ {
+ 	return JMS.SetHighTension(ht);
+ }
+ 
+-float __stdcall GetHighTension(void)
++float GetHighTension(void)
+ {
+ 	return JMS.GetHighTension();
+ }
+ 
+-float __stdcall GetWaveLength(void)
++float GetWaveLength(void)
+ {
+ 	return JMS.GetWaveLength();
+ }
+ 
+-int __stdcall GetDetetionSliceNum(void)
++int GetDetetionSliceNum(void)
+ {
+ 	return JMS.GetDetetionSliceNum();
+ }
+ 
+-int __stdcall GetDetNum(void)
++int GetDetNum(void)
+ {
+ 	return JMS.GetDetNum();
+ }
+-void __stdcall SetGridSize(int nx, int ny)
++void SetGridSize(int nx, int ny)
+ {
+ 	JMS.SetGridSize(nx, ny);
+ }
+ 
+-void __stdcall GetGridSize(int &nx, int &ny)
++void GetGridSize(int &nx, int &ny)
+ {
+ 	JMS.GetGridSize(nx, ny);
+ }
+ 
+-void __stdcall SetSupercellSize(float *a0)
++void SetSupercellSize(float *a0)
+ {
+ 	JMS.SetSupercellSize(a0);
+ }
+ 
+-void __stdcall SetSupercellSizeABC(float a, float b, float c)
++void SetSupercellSizeABC(float a, float b, float c)
+ {
+ 	JMS.SetSupercellSize(a, b, c);
+ }
+ 
+-void __stdcall SetSliceThickness(int islc, float fthickness)
++void SetSliceThickness(int islc, float fthickness)
+ {
+ 	JMS.SetSliceThickness(islc, fthickness);
+ }
+ 
+-void __stdcall DiffractionDescan(bool bActivate)
++void DiffractionDescan(bool bActivate)
+ {
+ 	JMS.DiffractionDescan(bActivate);
+ }
+ 
+-void __stdcall SetPlasmonMC(bool bActivate, float fq_e, float fq_c, float fmfp, unsigned int nexmax)
++void SetPlasmonMC(bool bActivate, float fq_e, float fq_c, float fmfp, unsigned int nexmax)
+ {
+ 	JMS.SetPlasmonMC(bActivate, fq_e, fq_c, fmfp, nexmax);
+ }
+ 
+-void __stdcall SetDiffractionDescanN(int whichcode, int ndescanx, int ndescany, int iThread)
++void SetDiffractionDescanN(int whichcode, int ndescanx, int ndescany, int iThread)
+ {
+ 	JMS.SetDiffractionDescanN(whichcode, ndescanx, ndescany, iThread);
+ }
+ 
+-void __stdcall SetDiffractionDescan(int whichcode, float descanx, float descany, int iThread)
++void SetDiffractionDescan(int whichcode, float descanx, float descany, int iThread)
+ {
+ 	JMS.SetDiffractionDescan(whichcode, descanx, descany, iThread);
+ }
+ 
+-void __stdcall SetDiffractionDescanMRad(int whichcode, float descanx, float descany, int iThread)
++void SetDiffractionDescanMRad(int whichcode, float descanx, float descany, int iThread)
+ {
+ 	JMS.SetDiffractionDescanMRad(whichcode, descanx, descany, iThread);
+ }
+ 
+-int __stdcall PhaseGratingSetup(int whichcode, int nx, int ny, int nslc, int nvarmax, int* nslcvar)
++int PhaseGratingSetup(int whichcode, int nx, int ny, int nslc, int nvarmax, int* nslcvar)
+ {
+ 	return JMS.PhaseGratingSetup(whichcode, nx, ny, nslc, nvarmax, nslcvar);
+ }
+ 
+-int __stdcall ObjectSliceSetup(int nobjslc, int* objslc)
++int ObjectSliceSetup(int nobjslc, int* objslc)
+ {
+ 	return JMS.ObjectSliceSetup(nobjslc, objslc);
+ }
+ 
+-int __stdcall PropagatorSetup(int whichcode, int npro, int *proidx)
++int PropagatorSetup(int whichcode, int npro, int *proidx)
+ {
+ 	return JMS.PropagatorSetup(whichcode, npro, proidx);
+ }
+ 
+-int __stdcall DetectorSetup(int whichcode, int ndetper, int ndetint, int imagedet, int nthreads_CPU)
++int DetectorSetup(int whichcode, int ndetper, int ndetint, int imagedet, int nthreads_CPU)
+ {
+ 	return JMS.DetectorSetup(whichcode, ndetper, ndetint, imagedet, nthreads_CPU);
+ }
+ 
+-int __stdcall SetSlicePhaseGratings(int whichcode, int islc, int nvar, fcmplx* pgr)
++int SetSlicePhaseGratings(int whichcode, int islc, int nvar, fcmplx* pgr)
+ {
+ 	return JMS.SetPhaseGratingData(whichcode, islc, nvar, pgr);
+ }
+ 
+-int __stdcall SetPropagatorData(int whichcode, int ipro, fcmplx* pro)
++int SetPropagatorData(int whichcode, int ipro, fcmplx* pro)
+ {
+ 	return JMS.SetPropagatorData(whichcode, ipro, pro);
+ }
+ 
+-int __stdcall SetDetectorData(int whichcode, int idet, float* det, int msklen, int* msk)
++int SetDetectorData(int whichcode, int idet, float* det, int msklen, int* msk)
+ {
+ 	return JMS.SetDetectorData(whichcode, idet, det, msklen, msk);
+ }
+ 
+-int __stdcall SetGPUPgrLoading(int npgrload)
++int SetGPUPgrLoading(int npgrload)
+ {
+ 	return JMS.SetGPUPgrLoading(npgrload);
+ }
+ 
+-int __stdcall InitCore(int whichcode, int nCPUthreads)
++int InitCore(int whichcode, int nCPUthreads)
+ {
+ 	return JMS.InitCore(whichcode, nCPUthreads);
+ }
+ 
+-int __stdcall SetIncidentWave(int whichcode, fcmplx* wav)
++int SetIncidentWave(int whichcode, fcmplx* wav)
+ {
+ 	return JMS.SetIncidentWave(whichcode, wav);
+ }
+ 
+-int __stdcall GetUnscrambleHash(unsigned int* phash)
++int GetUnscrambleHash(unsigned int* phash)
+ {
+ 	return JMS.GetUnscrambleHash(phash);
+ }
+ 
+-float __stdcall GetImageAveragingWeight(int whichcode, int iThread)
++float GetImageAveragingWeight(int whichcode, int iThread)
+ {
+ 	return JMS.GetImageAveragingWeight(whichcode, iThread);
+ }
+ 
+-float __stdcall GetWaveAveragingWeight(int whichcode, int iThread)
++float GetWaveAveragingWeight(int whichcode, int iThread)
+ {
+ 	return JMS.GetWaveAveragingWeight(whichcode, iThread);
+ }
+ 
+-int __stdcall ResetImageAveraging(int whichcode, int iThread)
++int ResetImageAveraging(int whichcode, int iThread)
+ {
+ 	return JMS.ResetImageAveraging(whichcode, iThread);
+ }
+ 
+-int __stdcall ResetWaveAveraging(int whichcode, int iThread)
++int ResetWaveAveraging(int whichcode, int iThread)
+ {
+ 	return JMS.ResetWaveAveraging(whichcode, iThread);
+ }
+ 
+-int __stdcall Cleanup(void)
++int Cleanup(void)
+ {
+ 	return JMS.Cleanup();
+ }
+ 
+-void __stdcall FreeLibMem(void)
++void FreeLibMem(void)
+ {
+ 	JMS.FreeLibMem();
+ 	return;
+@@ -224,32 +224,32 @@
+ //
+ ////////////////////////////////////////////////////////////////////////////////
+ 
+-int __stdcall OffsetIncomingWave(int whichcode, float dx, float dy, float dz, int iThread)
++int OffsetIncomingWave(int whichcode, float dx, float dy, float dz, int iThread)
+ {
+ 	return JMS.OffsetIncomingWave(whichcode, dx, dy, dz, iThread);
+ }
+ 
+-int __stdcall CalculateProbeWaveFourier(CJProbeParams* prm, fcmplx *wav)
++int CalculateProbeWaveFourier(CJProbeParams* prm, fcmplx *wav)
+ {
+ 	return JMS.CalculateProbeWaveFourier(prm, wav);
+ }
+ 
+-int __stdcall CalculatePropagator(float fthick, float otx, float oty, fcmplx *pro, int ntype)
++int CalculatePropagator(float fthick, float otx, float oty, fcmplx *pro, int ntype)
+ {
+ 	return JMS.CalculatePropagator(fthick, otx, oty, pro, ntype);
+ }
+ 
+-int __stdcall CalculateRingDetector(float beta0, float beta1, float phi0, float phi1, float theta0x, float theta0y, std::string sdsprofile, float *det, int &msklen, int *msk)
++int CalculateRingDetector(float beta0, float beta1, float phi0, float phi1, float theta0x, float theta0y, std::string sdsprofile, float *det, int &msklen, int *msk)
+ {
+ 	return JMS.CalculateRingDetector(beta0, beta1, phi0, phi1, theta0x, theta0x, sdsprofile, det, msklen, msk);
+ }
+ 
+-int __stdcall GetResult(int whichcode, int whichresult, float *dst, int iThread)
++int GetResult(int whichcode, int whichresult, float *dst, int iThread)
+ {
+ 	return JMS.GetResult(whichcode, whichresult, dst, iThread);
+ }
+ 
+-int __stdcall GetAvgResult(int whichcode, int whichresult, float* dst, float* wgt, int iThread)
++int GetAvgResult(int whichcode, int whichresult, float* dst, float* wgt, int iThread)
+ {
+ 	float weight = 0.f;
+ 	int nerr = JMS.GetAvgResult(whichcode, whichresult, dst, weight, iThread);
+@@ -265,27 +265,27 @@
+ //
+ ////////////////////////////////////////////////////////////////////////////////
+ 
+-int __stdcall GetCPUNum(void)
++int GetCPUNum(void)
+ {
+ 	return JMS.GetCPUNum();
+ }
+ 
+-int __stdcall SetIncomingWaveCPU(fcmplx* wav, bool bTranspose, int iThread)
++int SetIncomingWaveCPU(fcmplx* wav, bool bTranspose, int iThread)
+ {
+ 	return JMS.SetIncomingWaveCPU(wav, bTranspose, iThread);
+ }
+ 
+-int __stdcall CPUMultislice(int islc0, int accmode, float weight, int iThread)
++int CPUMultislice(int islc0, int accmode, float weight, int iThread)
+ {
+ 	return JMS.CPUMultislice(islc0, accmode, weight, iThread);
+ }
+ 
+-int __stdcall ClearDetMem_h(int iThread)
++int ClearDetMem_h(int iThread)
+ {
+ 	return JMS.ClearDetMem_h(iThread);
+ }
+ 
+-//int __stdcall ClearDetAvgMem_h(int iThread)
++//int ClearDetAvgMem_h(int iThread)
+ //{
+ //	return JMS.ClearDetAvgMem_h(iThread);
+ //}
+@@ -296,52 +296,52 @@
+ //
+ ////////////////////////////////////////////////////////////////////////////////
+ 
+-int __stdcall GetGPUNum(void)
++int GetGPUNum(void)
+ {
+ 	return JMS.GetGPUNum();
+ }
+ 
+-int __stdcall GetGPUName(int idev, char* name)
++int GetGPUName(int idev, char* name)
+ {
+ 	return JMS.GetGPUName(idev, name);
+ }
+ 
+-int __stdcall GetCurrentGPU(void)
++int GetCurrentGPU(void)
+ {
+ 	return JMS.GetCurrentGPU();
+ }
+ 
+-int __stdcall SetCurrentGPU(int idev)
++int SetCurrentGPU(int idev)
+ {
+ 	return JMS.SetCurrentGPU(idev);
+ }
+ 
+-int __stdcall GetGPUStats(int idev, int &iCMajor, int &iCMinor, int &iMaxThread, int64_t &CUDAmemtotal, int64_t &CUDAmemfree)
++int GetGPUStats(int idev, int &iCMajor, int &iCMinor, int &iMaxThread, int64_t &CUDAmemtotal, int64_t &CUDAmemfree)
+ {
+ 	return JMS.GetGPUStats(idev, iCMajor, iCMinor, iMaxThread, CUDAmemtotal, CUDAmemfree);
+ }
+ 
+-int __stdcall GetGPUCores(int idev, int &nMultiProc, int &nCores, int& nMaxThreadPerProc)
++int GetGPUCores(int idev, int &nMultiProc, int &nCores, int& nMaxThreadPerProc)
+ {
+ 	return JMS.GetGPUCores(idev, nMultiProc, nCores, nMaxThreadPerProc);
+ }
+ 
+-int __stdcall SetIncomingWaveGPU(fcmplx* wav, bool bTranspose)
++int SetIncomingWaveGPU(fcmplx* wav, bool bTranspose)
+ {
+ 	return JMS.SetIncomingWaveGPU(wav, bTranspose);
+ }
+ 
+-int __stdcall GPUMultislice(int islc0, int accmode, float weight)
++int GPUMultislice(int islc0, int accmode, float weight)
+ {
+ 	return JMS.GPUMultislice(islc0, accmode, weight);
+ }
+ 
+-int __stdcall ClearDetMem_d(void)
++int ClearDetMem_d(void)
+ {
+ 	return JMS.ClearDetMem_d();
+ }
+ 
+-//int __stdcall ClearDetAvgMem_d(void)
++//int ClearDetAvgMem_d(void)
+ //{
+ //	return JMS.ClearDetAvgMem_d();
+-//}
+\ No newline at end of file
++//}
+diff -ur JMultiSliceLib_orig/JMultiSliceLib/src/JMultiSliceLib.h JMultiSliceLib/JMultiSliceLib/src/JMultiSliceLib.h
+--- JMultiSliceLib_orig/JMultiSliceLib/src/JMultiSliceLib.h	2021-12-09 13:43:06.386502018 +0800
++++ JMultiSliceLib/JMultiSliceLib/src/JMultiSliceLib.h	2021-11-30 20:50:31.284645598 +0800
+@@ -108,48 +108,48 @@
+ // *** Basic Interface ***
+ 
+ // get version number (sub versions as fractional part)
+-extern "C" __declspec(dllexport) float __stdcall GetJMSVersion(void);
++extern "C" float GetJMSVersion(void);
+ 
+ // set code debug level
+-extern "C" __declspec(dllexport) int __stdcall SetJMSDebugLevel(int debuglevel);
++extern "C" int SetJMSDebugLevel(int debuglevel);
+ 
+ // set the random number generator
+-extern "C" __declspec(dllexport) void __stdcall SetRng(CRng *prng = NULL);
++extern "C" void SetRng(CRng *prng = NULL);
+ 
+ // get the random number generator
+-extern "C" __declspec(dllexport) CRng* __stdcall GetRng(void);
++extern "C" CRng* GetRng(void);
+ 
+ // seed the random number generator (0 = time based)
+-extern "C" __declspec(dllexport) void __stdcall SeedRngEx(int rngseed = 0);
++extern "C" void SeedRngEx(int rngseed = 0);
+ 
+ 
+ // *** Physics Interface ***
+ 
+ // set high tension value in keV
+-extern "C" __declspec(dllexport) float __stdcall SetHighTension(float ht);
++extern "C" float SetHighTension(float ht);
+ 
+ // get current high tension value in keV
+-extern "C" __declspec(dllexport) float __stdcall GetHighTension(void);
++extern "C" float GetHighTension(void);
+ 
+ // get current electron wavelength in nm
+-extern "C" __declspec(dllexport) float __stdcall GetWaveLength(void);
++extern "C" float GetWaveLength(void);
+ 
+ // set physical grid size in nm
+-extern "C" __declspec(dllexport) void __stdcall SetSupercellSize(float *a0);
++extern "C" void SetSupercellSize(float *a0);
+ 
+ // set physical grid size in nm
+-extern "C" __declspec(dllexport) void __stdcall SetSupercellSizeABC(float a, float b, float c);
++extern "C" void SetSupercellSizeABC(float a, float b, float c);
+ 
+ // Set the slice thickness in nm
+ // - islc: a slice index valid in the current phase grating setup
+ // - fthickness: the thickness of slice islc in nm
+-extern "C" __declspec(dllexport) void __stdcall SetSliceThickness(int islc, float fthickness);
++extern "C" void SetSliceThickness(int islc, float fthickness);
+ 
+ // Turns the diffraction de-scan on or off
+-extern "C" __declspec(dllexport) void __stdcall DiffractionDescan(bool bActivate);
++extern "C" void DiffractionDescan(bool bActivate);
+ 
+ // Sets parameterd for the plasmon scattering Monte-Carlo
+-extern "C" __declspec(dllexport) void __stdcall SetPlasmonMC(bool bActivate, float fq_e, float fq_c, float fmfp, unsigned int nexmax);
++extern "C" void SetPlasmonMC(bool bActivate, float fq_e, float fq_c, float fmfp, unsigned int nexmax);
+ 
+ // Set the diffraction descan values for a specific calculation thread.
+ // Use the same beam tilts as in the probe tilt, the routine inverts it.
+@@ -157,7 +157,7 @@
+ // - whichcode: flag code type, either _JMS_CODE_CPU or _JMS_CODE_GPU
+ // - ndescanx, ndescany: horizontal and vertical descan [pixel]
+ // - iThread: thread ID (for calls with whichcode == _JMS_CODE_CPU)
+-extern "C" __declspec(dllexport) void __stdcall SetDiffractionDescanN(int whichcode, int ndescanx, int ndescany, int iThread = 0);
++extern "C" void SetDiffractionDescanN(int whichcode, int ndescanx, int ndescany, int iThread = 0);
+ 
+ // Set the diffraction descan values for a specific calculation thread.
+ // Use the same beam tilts as in the probe tilt, the routine inverts it.
+@@ -165,7 +165,7 @@
+ // - whichcode: flag code type, either _JMS_CODE_CPU or _JMS_CODE_GPU
+ // - descanx, descany: horizontal and vertical descan [1/nm]
+ // - iThread: thread ID (for calls with whichcode == _JMS_CODE_CPU)
+-extern "C" __declspec(dllexport) void __stdcall SetDiffractionDescan(int whichcode, float descanx, float descany, int iThread = 0);
++extern "C" void SetDiffractionDescan(int whichcode, float descanx, float descany, int iThread = 0);
+ 
+ // Set the diffraction descan values for a specific calculation thread.
+ // Use the same beam tilts as in the probe tilt, the routine inverts it.
+@@ -173,97 +173,97 @@
+ // - whichcode: flag code type, either _JMS_CODE_CPU or _JMS_CODE_GPU
+ // - descanx, descany: horizontal and vertical descan [mrad]
+ // - iThread: thread ID (for calls with whichcode == _JMS_CODE_CPU)
+-extern "C" __declspec(dllexport) void __stdcall SetDiffractionDescanMRad(int whichcode, float descanx, float descany, int iThread = 0);
++extern "C" void SetDiffractionDescanMRad(int whichcode, float descanx, float descany, int iThread = 0);
+ 
+ 
+ 
+ // *** Numerics Interface ***
+ 
+ // set calculation grid size parameters (pre-set, no allocation)
+-extern "C" __declspec(dllexport) void __stdcall SetGridSize(int nx, int ny);
++extern "C" void SetGridSize(int nx, int ny);
+ 
+ // get current calculation grid size
+-extern "C" __declspec(dllexport) void __stdcall GetGridSize(int &nx, int &ny);
++extern "C" void GetGridSize(int &nx, int &ny);
+ 
+ // get number of registered detection slices
+-extern "C" __declspec(dllexport) int __stdcall GetDetetionSliceNum(void);
++extern "C" int GetDetetionSliceNum(void);
+ 
+ // get number of registered detectors
+-extern "C" __declspec(dllexport) int __stdcall GetDetNum(void);
++extern "C" int GetDetNum(void);
+ 
+ // get number of available CPUs
+-extern "C" __declspec(dllexport) int __stdcall GetCPUNum(void);
++extern "C" int GetCPUNum(void);
+ 
+ // get number of available GPUs
+-extern "C" __declspec(dllexport) int __stdcall GetGPUNum(void);
++extern "C" int GetGPUNum(void);
+ 
+ // get GPU device name
+-extern "C" __declspec(dllexport) int __stdcall GetGPUName(int idev, char* name);
++extern "C" int GetGPUName(int idev, char* name);
+ 
+ // get current GPU device ID
+-extern "C" __declspec(dllexport) int __stdcall GetCurrentGPU(void);
++extern "C" int GetCurrentGPU(void);
+ 
+ // set current GPU device ID
+-extern "C" __declspec(dllexport) int __stdcall SetCurrentGPU(int idev);
++extern "C" int SetCurrentGPU(int idev);
+ 
+ // get some statistics of a GPU device
+-extern "C" __declspec(dllexport) int __stdcall GetGPUStats(int idev, int &iCMajor, int &iCMinor, int &iMaxThread, int64_t &CUDAmemtotal, int64_t &CUDAmemfree);
++extern "C" int GetGPUStats(int idev, int &iCMajor, int &iCMinor, int &iMaxThread, int64_t &CUDAmemtotal, int64_t &CUDAmemfree);
+ 
+ // get some statistics of a GPU device
+-extern "C" __declspec(dllexport) int __stdcall GetGPUCores(int idev, int &nMultiProc, int &nCores, int& nMaxThreadPerProc);
++extern "C" int GetGPUCores(int idev, int &nMultiProc, int &nCores, int& nMaxThreadPerProc);
+ 
+ // Returns a hash table to unscramble the Fourier space by means of index access.
+ // After unscrambling, the zero beam is on pixel (m_nscx/2, m_nscy/2).
+ // Use this hash like this: a_unscrambled[idx] = a_scrambled[phash[idx]];
+ // - phash: unsigned int list of indices in the order of their occurrance in
+ //          an unscrambled array (preallocated by the calling code)
+-extern "C" __declspec(dllexport) int __stdcall GetUnscrambleHash(unsigned int* phash);
++extern "C" int GetUnscrambleHash(unsigned int* phash);
+ 
+ // returns the total weight used for accumulation in the image averaging detector channcels
+-extern "C" __declspec(dllexport) float __stdcall GetImageAveragingWeight(int whichcode, int iThread = 0);
++extern "C" float GetImageAveragingWeight(int whichcode, int iThread = 0);
+ 
+ // returns the total weight used for accumulation in the wave function averaging detector channcels
+-extern "C" __declspec(dllexport) float __stdcall GetWaveAveragingWeight(int whichcode, int iThread = 0);
++extern "C" float GetWaveAveragingWeight(int whichcode, int iThread = 0);
+ 
+ // *** Setup Interface ***
+ 
+ // setup phase grating memory
+-extern "C" __declspec(dllexport) int __stdcall PhaseGratingSetup(int whichcode, int nx, int ny, int nslc, int nvarmax, int* nslcvar);
++extern "C" int PhaseGratingSetup(int whichcode, int nx, int ny, int nslc, int nvarmax, int* nslcvar);
+ 
+ // setup object slice sequence
+-extern "C" __declspec(dllexport) int __stdcall ObjectSliceSetup(int nobjslc, int* objslc);
++extern "C" int ObjectSliceSetup(int nobjslc, int* objslc);
+ 
+ // setup propgator memory
+-extern "C" __declspec(dllexport) int __stdcall PropagatorSetup(int whichcode, int npro, int *proidx);
++extern "C" int PropagatorSetup(int whichcode, int npro, int *proidx);
+ 
+ // setup detector data
+-extern "C" __declspec(dllexport) int __stdcall DetectorSetup(int whichcode, int ndetper, int ndetint, int imagedet, int nthreads_CPU = 1);
++extern "C" int DetectorSetup(int whichcode, int ndetper, int ndetint, int imagedet, int nthreads_CPU = 1);
+ 
+ // initialize core
+-extern "C" __declspec(dllexport) int __stdcall InitCore(int whichcode, int nCPUthreads = 1);
++extern "C" int InitCore(int whichcode, int nCPUthreads = 1);
+ 
+ // set the incoming wave
+-extern "C" __declspec(dllexport) int __stdcall SetIncidentWave(int whichcode, fcmplx* wav);
++extern "C" int SetIncidentWave(int whichcode, fcmplx* wav);
+ 
+ // set phase gratings for a structure slice
+-extern "C" __declspec(dllexport) int __stdcall SetSlicePhaseGratings(int whichcode, int islc, int nvar, fcmplx* pgr);
++extern "C" int SetSlicePhaseGratings(int whichcode, int islc, int nvar, fcmplx* pgr);
+ 
+ // set the propagator for a propagator index
+-extern "C" __declspec(dllexport) int __stdcall SetPropagatorData(int whichcode, int ipro, fcmplx* pro);
++extern "C" int SetPropagatorData(int whichcode, int ipro, fcmplx* pro);
+ 
+ // set the detector function for a detector index
+-extern "C" __declspec(dllexport) int __stdcall SetDetectorData(int whichcode, int idet, float* det, int msklen=0, int* msk=NULL);
++extern "C" int SetDetectorData(int whichcode, int idet, float* det, int msklen=0, int* msk=NULL);
+ 
+ // Sets GPU phase grating loading scheme
+ // - npgrload: 0 = pre-load all to device (default),
+ //             1 = each phase-grating is loaded to device on demand
+-extern "C" __declspec(dllexport) int __stdcall SetGPUPgrLoading(int npgrload = 0);
++extern "C" int SetGPUPgrLoading(int npgrload = 0);
+ 
+ // Resets the data in the image averaging output buffers to zero
+-extern "C" __declspec(dllexport) int __stdcall ResetImageAveraging(int whichcode, int iThread = 0);
++extern "C" int ResetImageAveraging(int whichcode, int iThread = 0);
+ 
+ // Resets the data in the wave function averaging output buffers to zero
+-extern "C" __declspec(dllexport) int __stdcall ResetWaveAveraging(int whichcode, int iThread = 0);
++extern "C" int ResetWaveAveraging(int whichcode, int iThread = 0);
+ 
+ 
+ // *** Calculation Interface ***
+@@ -271,20 +271,20 @@
+ // Calculates a STEM probe wavefunction in Fourier space using current parameters
+ // - prm: address of a CJProbeParams object defining physical probe parameters
+ // - wav: address receiving the probe wave function
+-extern "C" __declspec(dllexport) int __stdcall CalculateProbeWaveFourier(CJProbeParams* prm, fcmplx *wav);
++extern "C" int CalculateProbeWaveFourier(CJProbeParams* prm, fcmplx *wav);
+ 
+ // Ignores the backup wave function and stores wav directly in
+ // the wave function channel for the GPU multislice calculation.
+ // - wav: wave function in Fourier space
+ // - bTranspose: flag signalizing that the input wave function is transposed
+-extern "C" __declspec(dllexport) int __stdcall SetIncomingWaveGPU(fcmplx* wav, bool bTranspose = false);
++extern "C" int SetIncomingWaveGPU(fcmplx* wav, bool bTranspose = false);
+ 
+ // Ignores the backup wave function and stores wav directly in
+ // the wave function channel of thread iThread for the CPU multislice calculation.
+ // - wav: wave function in Fourier space
+ // - bTranspose: flag signalizing that the input wave function is transposed
+ // - iThread: CPU thread ID
+-extern "C" __declspec(dllexport) int __stdcall SetIncomingWaveCPU(fcmplx* wav, bool bTranspose = false, int iThread = 0);
++extern "C" int SetIncomingWaveCPU(fcmplx* wav, bool bTranspose = false, int iThread = 0);
+ 
+ // Calculates a propagator function for a given thickness, object tilt
+ // and current size and wavelength parameters. The propagator amplitudes
+@@ -294,7 +294,7 @@
+ // - otx, oty: object tilt parameters in deg
+ // - pro: address receiving the propagator grid
+ // - ntype: propagator type switch: 0 = planar, 1 = Fresnel
+-extern "C" __declspec(dllexport) int __stdcall CalculatePropagator(float fthick, float otx, float oty, fcmplx *pro, int ntype = 0);
++extern "C" int CalculatePropagator(float fthick, float otx, float oty, fcmplx *pro, int ntype = 0);
+ 
+ // Calculates a ring detector function and writes it to a pre-allocated output
+ // array 'det' of size (m_nscx * m_nsxy). Also creates a mask if a pointer
+@@ -308,34 +308,34 @@
+ // - det: pointer to a float array receiving the detector function data (pre-allocated)
+ // - msklen: length of an access pixel mask list
+ // - msk: pointer to an access pixel mask list, which speeds up the detector readout, optional (pre-allocated)
+-extern "C" __declspec(dllexport) int __stdcall CalculateRingDetector(float beta0, float beta1, float phi0, float phi1, float theta0x, float theta0y, std::string sdsprofile, float *det, int &msklen, int *msk = NULL);
++extern "C" int CalculateRingDetector(float beta0, float beta1, float phi0, float phi1, float theta0x, float theta0y, std::string sdsprofile, float *det, int &msklen, int *msk = NULL);
+ 
+ // Takes a copy of the backup wave function, offsets in (x, y, z), and stores
+ // in the the active wave function channel used for the multislice calculation.
+ // - whichcode: flag signaling which code to prepare (_JMS_CODE_CPU | _JMS_CODE_GPU)
+ // - dx, dy, dz: offset distances in 3 dimensions and nm units.
+ // - iThread: thread ID for CPU code, ignored for GPU code
+-extern "C" __declspec(dllexport) int __stdcall OffsetIncomingWave(int whichcode, float dx, float dy, float dz, int iThread = 0);
++extern "C" int OffsetIncomingWave(int whichcode, float dx, float dy, float dz, int iThread = 0);
+ 
+ // Runs a multislice calculation on a CPU thread
+ // Assumes incident wave function present in _h_JMS_wav
+ // - islc0: index of the starting slice
+ // - accmode = 0: new accumulation, 1: accumulate to previous detections
+ // - iThread: thread ID
+-extern "C" __declspec(dllexport) int __stdcall CPUMultislice(int islc0, int accmode, float weight = 1.0f,  int iThread = 0);
++extern "C" int CPUMultislice(int islc0, int accmode, float weight = 1.0f,  int iThread = 0);
+ 
+ // Runs a multislice calculation on GPU.
+ // Assumes incident wave function present in _d_JMS_wav.
+ // - islc0: index of the starting slice
+ // - accmode = 0: new accumulation, 1: accumulate to previous detections
+-extern "C" __declspec(dllexport) int __stdcall GPUMultislice(int islc0, int accmode, float weight=1.f);
++extern "C" int GPUMultislice(int islc0, int accmode, float weight=1.f);
+ 
+ // Copies detection results to provided host address
+ // - whichcode: flag signaling which code to prepare (_JMS_CODE_CPU | whichcode)
+ // - whichresult: flag signaling which result to retrieve, one of _JMS_DETECT_INTEGRATED, _JMS_DETECT_IMAGE, _JMS_DETECT_DIFFRACTION, ...
+ // - dst: destination address recieving results.
+ // - iThread: thread ID of CPU code
+-extern "C" __declspec(dllexport) int __stdcall GetResult(int whichcode, int whichresult, float *dst, int iThread = 0);
++extern "C" int GetResult(int whichcode, int whichresult, float *dst, int iThread = 0);
+ 
+ // Copies average detection results to provided host address
+ // - whichcode: flag signaling which code to prepare (_JMS_CODE_CPU | whichcode)
+@@ -343,19 +343,19 @@
+ // - dst: destination address recieving results.
+ // - wgt: destination address recieving the averaging weight
+ // - iThread: thread ID of CPU code
+-extern "C" __declspec(dllexport) int __stdcall GetAvgResult(int whichcode, int whichresult, float* dst, float* wgt, int iThread = 0);
++extern "C" int GetAvgResult(int whichcode, int whichresult, float* dst, float* wgt, int iThread = 0);
+ 
+ // Clears host detector memory for a CPU thread
+-extern "C" __declspec(dllexport) int __stdcall ClearDetMem_h(int iThread);
++extern "C" int ClearDetMem_h(int iThread);
+ 
+ //// Clears host averaging detector memory for a CPU thread
+-//extern "C" __declspec(dllexport) int __stdcall ClearDetAvgMem_h(int iThread);
++//extern "C" int ClearDetAvgMem_h(int iThread);
+ 
+ // Clears device detector memory
+-extern "C" __declspec(dllexport) int __stdcall ClearDetMem_d(void);
++extern "C" int ClearDetMem_d(void);
+ 
+ //// Clears device averaging detector memory
+-//extern "C" __declspec(dllexport) int __stdcall ClearDetAvgMem_d(void);
++//extern "C" int ClearDetAvgMem_d(void);
+ 
+ 
+ // ** Cleanup Interface ***
+@@ -364,11 +364,11 @@
+ // - all arrays will be de-allocated on device and host
+ // - scalar values remain if not linked to the array handling
+ // - resets the setup status to NONE
+-extern "C" __declspec(dllexport) int __stdcall Cleanup(void);
++extern "C" int Cleanup(void);
+ 
+ // Cleans the FFTW/MKL module
+ // - call this only if all FFTW/MKL routines are halted and no longer used.
+ // - FFTW/MKL needs to be reinitialized afterwards.
+-extern "C" __declspec(dllexport) void __stdcall FreeLibMem(void);
++extern "C" void FreeLibMem(void);
+ 
+-#endif
+\ No newline at end of file
++#endif
+diff -ur JMultiSliceLib_orig/JMultiSliceLib/src/JProbeGen.h JMultiSliceLib/JMultiSliceLib/src/JProbeGen.h
+--- JMultiSliceLib_orig/JMultiSliceLib/src/JProbeGen.h	2021-12-09 13:43:06.386502018 +0800
++++ JMultiSliceLib/JMultiSliceLib/src/JProbeGen.h	2021-11-30 18:14:38.620324001 +0800
+@@ -41,6 +41,7 @@
+ //
+ #pragma once
+ //
++#include <climits>
+ #include <vector>
+ #include <chrono>
+ //#include "JFFTWcore.h"
+diff -ur JMultiSliceLib_orig/JMultiSliceLib/src/prime_numbers.h JMultiSliceLib/JMultiSliceLib/src/prime_numbers.h
+--- JMultiSliceLib_orig/JMultiSliceLib/src/prime_numbers.h	2021-12-09 13:43:06.526502023 +0800
++++ JMultiSliceLib/JMultiSliceLib/src/prime_numbers.h	2021-11-30 18:15:14.448325233 +0800
+@@ -24,9 +24,10 @@
+ ----------------------------------------------------------------------- */
+ 
+ #pragma once
++#include <cstddef>
+ 
+ // returns the largest prime factor of n (recursive)
+ size_t largest_prime_factor(size_t n);
+ 
+ // returns the next number following n which has only prime factors smaller or equal to pfmax
+-size_t next_low_prime(size_t n, size_t pfmax);
+\ No newline at end of file
++size_t next_low_prime(size_t n, size_t pfmax);
+diff -ur JMultiSliceLib_orig/JMultiSliceLib/src/Structure.cpp JMultiSliceLib/JMultiSliceLib/src/Structure.cpp
+--- JMultiSliceLib_orig/JMultiSliceLib/src/Structure.cpp	2021-11-30 16:36:44.000121999 +0800
++++ JMultiSliceLib/JMultiSliceLib/src/Structure.cpp	2021-12-10 03:44:21.976237651 +0800
+@@ -559,7 +559,7 @@
+ 	}
+ 
+ 	// parse all atom lines
+-	for (size_t iline = 2; iline < nlines - 2; iline++) {
++	for (size_t iline = 2; iline < nlines - 1; iline++) {
+ 		sline = v_lines[iline];
+ 		if (std::string::npos != sline.find("*", 0)) break; // reached end of structure signal
+ 		j = 0; // counts number of parameters successfully read
+@@ -648,11 +648,11 @@
+ 		}
+ 	}
+ 	// write end of structure signal
+-	fcout << "*" << std::endl;
++	fcout << "*\n" << std::endl;
+ 	// close file
+ 	fcout.close();
+ _exit:
+ 	return nerr;
+ }
+ 
+-// ************************************************************************** //
+\ No newline at end of file
++// ************************************************************************** //
+diff -ur JMultiSliceLib_orig/JMultiSliceLib/src/TextFileOps.h JMultiSliceLib/JMultiSliceLib/src/TextFileOps.h
+--- JMultiSliceLib_orig/JMultiSliceLib/src/TextFileOps.h	2021-12-09 13:43:06.390502018 +0800
++++ JMultiSliceLib/JMultiSliceLib/src/TextFileOps.h	2021-11-30 20:33:06.928609687 +0800
+@@ -30,6 +30,7 @@
+ #include <iomanip>
+ #include <fstream>
+ #include <vector>
++#include <sys/stat.h>
+ #include "string_format.h"
+ 
+ // checks whether a file specified by its file name (sfile) exists
+@@ -54,4 +55,4 @@
+ std::string to_string(std::string sprm);
+ 
+ // reads lines of text from file into a std::vector<std::string> object
+-int read_textfile_lines(std::string filename, std::vector<std::string>& v_lines);
+\ No newline at end of file
++int read_textfile_lines(std::string filename, std::vector<std::string>& v_lines);
+diff -ur JMultiSliceLib_orig/JMultiSliceLib/src/wekoscat.h JMultiSliceLib/JMultiSliceLib/src/wekoscat.h
+--- JMultiSliceLib_orig/JMultiSliceLib/src/wekoscat.h	2021-12-09 13:43:06.530502023 +0800
++++ JMultiSliceLib/JMultiSliceLib/src/wekoscat.h	2021-11-30 18:16:20.092327490 +0800
+@@ -44,6 +44,7 @@
+ 
+ #pragma once
+ 
++#include <cstring>
+ #include "fcomplex.h"
+ #include "NatureConstants.h"
+ 
+diff -ur JMultiSliceLib_orig/JMultiSliceLib/test/JMSBench1/params.h JMultiSliceLib/JMultiSliceLib/test/JMSBench1/params.h
+--- JMultiSliceLib_orig/JMultiSliceLib/test/JMSBench1/params.h	2021-12-09 13:43:06.530502023 +0800
++++ JMultiSliceLib/JMultiSliceLib/test/JMSBench1/params.h	2021-12-01 15:21:42.958938143 +0800
+@@ -30,6 +30,8 @@
+ #include <fstream>
+ #include <vector>
+ #include <algorithm>
++#include <cstring>
++#include <sys/stat.h>
+ #include "perfclock.h"
+ #include "string_format.h"
+ 
+diff -ur JMultiSliceLib_orig/JMultiSliceLib/test/JMSBench1/prm_sample.cpp JMultiSliceLib/JMultiSliceLib/test/JMSBench1/prm_sample.cpp
+--- JMultiSliceLib_orig/JMultiSliceLib/test/JMSBench1/prm_sample.cpp	2021-12-09 13:43:06.530502023 +0800
++++ JMultiSliceLib/JMultiSliceLib/test/JMSBench1/prm_sample.cpp	2021-12-10 04:27:36.924326880 +0800
+@@ -772,7 +772,7 @@
+ 		slc_tmp.header.sz = st_slc.m_vCellSize.z;
+ 		stmp = st_slc.GetCompositionString();
+ 		memset(slc_tmp.header.s_slc_name, 0, sizeof(char) * SLICENAME_MAX);
+-		snprintf(slc_tmp.header.s_slc_name, sizeof(char) * std::min((size_t)SLICENAME_MAX, stmp.size()), "%s", stmp.data());
++		snprintf(slc_tmp.header.s_slc_name, sizeof(char) * std::min((size_t)SLICENAME_MAX, stmp.size()+1), "%s", stmp.data());
+ 		if (btalk || binteractive) {
+ 			std::cout << "  - slice #" << i + 1 << ": " << stmp << std::endl;
+ 		}
+@@ -1784,4 +1784,4 @@
+ 			}
+ 		}
+ 	}
+-}
+\ No newline at end of file
++}
+diff -ur JMultiSliceLib_orig/JMultiSliceLib/test/JMSBench1/prm_slice.cpp JMultiSliceLib/JMultiSliceLib/test/JMSBench1/prm_slice.cpp
+--- JMultiSliceLib_orig/JMultiSliceLib/test/JMSBench1/prm_slice.cpp	2021-12-09 13:43:06.530502023 +0800
++++ JMultiSliceLib/JMultiSliceLib/test/JMSBench1/prm_slice.cpp	2021-12-01 15:20:09.662934935 +0800
+@@ -100,13 +100,13 @@
+ {
+ 	int nerr = 0;
+ 
+-	unsigned __int32 natt = 0;
+-	unsigned __int32 natp_max = 0, natp = 0;
+-	unsigned __int32 natr_max = 0, natr = 0;
+-	unsigned __int32 iatt = 0, iat = 0;
+-	__int32 itmp = 0;
++	uint32_t natt = 0;
++	uint32_t natp_max = 0, natp = 0;
++	uint32_t natr_max = 0, natr = 0;
++	uint32_t iatt = 0, iat = 0;
++	int32_t itmp = 0;
+ 	float ftmp = 0.f;
+-	size_t szi4 = sizeof(__int32);
++	size_t szi4 = sizeof(int32_t);
+ 	size_t szf4 = sizeof(float);
+ 	CAtomType att;
+ 	CAtom at;
+@@ -306,13 +306,13 @@
+ 	int nerr = 0, ierr = 0;
+ 	size_t sz_itab = header.data_offset - header.structure_offset;
+ 	size_t buf_pos = 0; // buffer output position
+-	unsigned __int32 natt = (unsigned __int32)st.m_vTypes.size(); // number of types
+-	unsigned __int32 nat = (unsigned __int32)st.m_vAtoms.size(); // number of atoms
+-	unsigned __int32 natp = 0; // number of atoms of a type
+-	unsigned __int32 natr = 0; // number of transistions of a type
+-	unsigned __int32 natp_max = (unsigned __int32)st.GetMaxAtomNumber(); // max. number of atoms per type
+-	unsigned __int32 natr_max = 0; // max. number of inealstic transitions per type
+-	unsigned __int32 iatt = 0, iat = 0;
++	uint32_t natt = (uint32_t)st.m_vTypes.size(); // number of types
++	uint32_t nat = (uint32_t)st.m_vAtoms.size(); // number of atoms
++	uint32_t natp = 0; // number of atoms of a type
++	uint32_t natr = 0; // number of transistions of a type
++	uint32_t natp_max = (uint32_t)st.GetMaxAtomNumber(); // max. number of atoms per type
++	uint32_t natr_max = 0; // max. number of inealstic transitions per type
++	uint32_t iatt = 0, iat = 0;
+ 	char* buf = NULL;
+ 
+ 	if (NULL == pfs) {
+@@ -334,18 +334,18 @@
+ 		goto _exit;
+ 	}
+ 
+-	memcpy(&buf[buf_pos], &natt, sizeof(unsigned __int32)); buf_pos += sizeof(unsigned __int32); // number of atom types
+-	memcpy(&buf[buf_pos], &natp_max, sizeof(unsigned __int32)); buf_pos += sizeof(unsigned __int32); // max. number of atoms per types
+-	memcpy(&buf[buf_pos], &natr_max, sizeof(unsigned __int32)); buf_pos += sizeof(unsigned __int32); // max. number of transitions per types
++	memcpy(&buf[buf_pos], &natt, sizeof(uint32_t)); buf_pos += sizeof(uint32_t); // number of atom types
++	memcpy(&buf[buf_pos], &natp_max, sizeof(uint32_t)); buf_pos += sizeof(uint32_t); // max. number of atoms per types
++	memcpy(&buf[buf_pos], &natr_max, sizeof(uint32_t)); buf_pos += sizeof(uint32_t); // max. number of transitions per types
+ 
+ 	if (natt > 0) { // there are atom types to store
+ 		for (iatt = 0; iatt < natt; iatt++) { // loop over atom types
+-			natp = (unsigned __int32)st.GetAtomNumber((int)iatt); // number of atoms of this type
++			natp = (uint32_t)st.GetAtomNumber((int)iatt); // number of atoms of this type
+ 			memcpy(&buf[buf_pos], &st.m_vTypes[iatt].m_nAtomicNumber, sizeof(int)); buf_pos += sizeof(int); // atomic number
+ 			memcpy(&buf[buf_pos], &st.m_vTypes[iatt].m_fIonicCharge, sizeof(float)); buf_pos += sizeof(float); // ionic charge
+ 			memcpy(&buf[buf_pos], &st.m_vTypes[iatt].m_fBiso, sizeof(float)); buf_pos += sizeof(float); // Biso
+ 			memcpy(&buf[buf_pos], &st.m_vTypes[iatt].m_fOccupancy, sizeof(float)); buf_pos += sizeof(float); // type occupancy
+-			memcpy(&buf[buf_pos], &natp, sizeof(unsigned __int32)); buf_pos += sizeof(unsigned __int32); // number of positions with the current atom type
++			memcpy(&buf[buf_pos], &natp, sizeof(uint32_t)); buf_pos += sizeof(uint32_t); // number of positions with the current atom type
+ 			if (natp > 0) { // store related atom positions
+ 				for (iat = 0; iat < nat; iat++) { // loop over all atoms
+ 					if (st.m_vAtoms[iat].m_nAtomTypeIndex == (int)iatt) { // this atom is of the current type
+@@ -356,7 +356,7 @@
+ 					}
+ 				} // loop iat over atoms
+ 			}
+-			memcpy(&buf[buf_pos], &natr, sizeof(unsigned __int32)); buf_pos += sizeof(unsigned __int32); // number of transitions with the current atom type
++			memcpy(&buf[buf_pos], &natr, sizeof(uint32_t)); buf_pos += sizeof(uint32_t); // number of transitions with the current atom type
+ 			if (natr > 0) { // store related transition code
+ 				// 2020-05-28 - This is not implemented.
+ 			}
+@@ -606,4 +606,4 @@
+ 		itab_size = 4 * 3;
+ 	}	
+ 	return itab_size;
+-}
+\ No newline at end of file
++}
+diff -ur JMultiSliceLib_orig/JMultiSliceLib/test/JMSBench1/prm_slice_file_info.cpp JMultiSliceLib/JMultiSliceLib/test/JMSBench1/prm_slice_file_info.cpp
+--- JMultiSliceLib_orig/JMultiSliceLib/test/JMSBench1/prm_slice_file_info.cpp	2021-12-09 13:43:06.534502023 +0800
++++ JMultiSliceLib/JMultiSliceLib/test/JMSBench1/prm_slice_file_info.cpp	2021-12-01 06:04:10.889787874 +0800
+@@ -184,10 +184,10 @@
+ bool prm_slice_file_info::check_ems_endian(std::ifstream* pfs)
+ {
+ 	bool swap = false;
+-	__int32 ichk = 0;
++	int32_t ichk = 0;
+ 	if (pfs) {
+ 		pfs->seekg(0);
+-		pfs->read((char*)&ichk, sizeof(__int32));
++		pfs->read((char*)&ichk, sizeof(int32_t));
+ 		if (ichk < 0 || ichk > 16384) swap = true;
+ 	}
+ 	return swap;
+diff -ur JMultiSliceLib_orig/JMultiSliceLib/test/JMSBench1/prm_slice_file_info.h JMultiSliceLib/JMultiSliceLib/test/JMSBench1/prm_slice_file_info.h
+--- JMultiSliceLib_orig/JMultiSliceLib/test/JMSBench1/prm_slice_file_info.h	2021-12-09 13:43:06.534502023 +0800
++++ JMultiSliceLib/JMultiSliceLib/test/JMSBench1/prm_slice_file_info.h	2021-12-01 05:59:53.569779026 +0800
+@@ -29,6 +29,7 @@
+ 
+ #pragma once
+ 
++#include <cstring>
+ #include "params.h"
+ 
+ #define SLICENAME_MAX				40
+
