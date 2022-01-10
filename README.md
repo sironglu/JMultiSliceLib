@@ -1,3 +1,9 @@
+This repo is forked from [ju-bar/JMultiSliceLib](https://github.com/ju-bar/JMultiSliceLib) for Linux. 
+
+Please read README_LINUX.txt for details. 
+
+#
+
 # JMultiSlice
 
 JMultiSlice is C++ library code providing routines for fast multislice calculations
