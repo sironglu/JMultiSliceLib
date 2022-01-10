@@ -1,3 +1,10 @@
+# This fork is for building JMultiSliceLib & JMSBench1 under Linux with CUDA support. 
+# Three files are added:
+# /patch_for_linux.diff
+# /src/Makefile
+# /test/JMSBench1/Makefile
+
+# How to build:
 module load cuda intel
 
 git clone https://github.com/sironglu/JMultiSliceLib.git
@@ -17,3 +24,5 @@ make -j 8
 # module load cuda/11.2 intel/2020.4 gcc/8.2.0 fftw/3.3.8
 # If cuda_runtime.h is still missing:
 # export CPLUS_INCLUDE_PATH=${INCLUDE}
+
+# Please modify the two Makefiles for performance tuning. 
